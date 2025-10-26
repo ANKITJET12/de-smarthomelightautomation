@@ -1,0 +1,109 @@
+/*
+ * ESP32 & Blynk - FULL 4-CHANNEL RELAY CODE
+ *
+ * This is the complete code for all 4 relays.
+ * It includes all software fixes for power stability.
+ *
+ * WARNING: This code will NOT work without the "Separate Power Supplies"
+ * hardware fix. It will cause the ESP32 to crash and restart.
+ */
+
+// --- New lines to disable brownout detector ---
+#include "soc/soc.h"
+#include "soc/rtc_cntl_reg.h"
+// ---
+
+#define BLYNK_TEMPLATE_ID "TMPL3eTFx8aCb"
+#define BLYNK_TEMPLATE_NAME "home automation"
+#define BLYNK_AUTH_TOKEN "N9V09VAxdgUOaGw55sMarddXGNk0KZvj"
+
+#define BLYNK_PRINT Serial
+#include <WiFi.h>
+#include <WiFiClient.h>
+#include <BlynkSimpleEsp32.h>
+
+char auth[] = BLYNK_AUTH_TOKEN;
+char ssid[] = "Wokwi-GUEST"; //make changes here according to the platform or approach you want to run the code i.e either on online simulator or physical device.....
+char pass[] = "";
+
+// --- Pin Definitions ---
+#define relay1_pin 13 // V1
+#define relay2_pin 12 // V2
+#define relay3_pin 14 // V3
+#define relay4_pin 27 // V4
+
+// --- Virtual Pins ---
+#define button1_vpin V1
+#define button2_vpin V2
+#define button3_vpin V3
+#define button4_vpin V4
+
+// --- New "guard" flag ---
+bool pins_initialized = false;
+
+// This function runs *after* we are connected to Blynk
+BLYNK_CONNECTED() {
+  Serial.println("Blynk Connected! Initializing relays...");
+  
+  // --- This is where we will now set up the relay pins ---
+  pinMode(relay1_pin, OUTPUT);
+  pinMode(relay2_pin, OUTPUT);
+  pinMode(relay3_pin, OUTPUT);
+  pinMode(relay4_pin, OUTPUT);
+
+  digitalWrite(relay1_pin, HIGH); // Set to OFF
+  digitalWrite(relay2_pin, HIGH); // Set to OFF
+  digitalWrite(relay3_pin, HIGH); // Set to OFF
+  digitalWrite(relay4_pin, HIGH); // Set to OFF
+
+  // Sync the app buttons to our current (OFF) state
+  Blynk.syncVirtual(button1_vpin);
+  Blynk.syncVirtual(button2_vpin);
+  Blynk.syncVirtual(button3_vpin);
+  Blynk.syncVirtual(button4_vpin);
+
+  // Set the "safe" flag
+  pins_initialized = true;
+  Serial.println("Relays Initialized. System Ready.");
+}
+
+// --- Functions to handle input from the BLYNK APP ---
+BLYNK_WRITE(button1_vpin) {
+  if (!pins_initialized) return; // Guard: Don't run if pins aren't ready
+  int app_state = param.asInt();
+  digitalWrite(relay1_pin, !app_state); // "!" for Active-LOW
+}
+
+BLYNK_WRITE(button2_vpin) {
+  if (!pins_initialized) return; // Guard: Don't run if pins aren't ready
+  int app_state = param.asInt();
+  digitalWrite(relay2_pin, !app_state);
+}
+
+BLYNK_WRITE(button3_vpin) {
+  if (!pins_initialized) return; // Guard: Don't run if pins aren't ready
+  int app_state = param.asInt();
+  digitalWrite(relay3_pin, !app_state);
+}
+
+BLYNK_WRITE(button4_vpin) {
+  if (!pins_initialized) return; // Guard: Don't run if pins aren't ready
+  int app_state = param.asInt();
+  digitalWrite(relay4_pin, !app_state);
+}
+
+void setup() {
+  WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0); 
+  Serial.begin(115200);
+  Serial.println("Booting... connecting to WiFi first.");
+
+  // This will reduce the power spike from the WiFi radio
+  WiFi.setTxPower(WIFI_POWER_13dBm); 
+  
+  // Notice: We do NOT initialize the relay pins here anymore.
+  Blynk.begin(auth, ssid, pass);
+}
+
+void loop() {
+  Blynk.run();
+}
